@@ -14,7 +14,15 @@
     </types>
     <types>
         <members>*</members>
+        <name>CustomLabels</name>
+    </types>
+    <types>
+        <members>*</members>
         <name>CustomObject</name>
+    </types>
+    <types>
+        <members>*</members>
+        <name>Custom​Metadata</name>
     </types>
     <version>41.0</version>
 </Package>
