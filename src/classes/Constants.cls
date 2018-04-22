@@ -5,7 +5,7 @@ public with sharing class Constants {
     public static final String INVENTORY_LEVEL_LOW = 'Has a low inventory';
     public static final List<Schema.PicklistEntry> PRODUCT_FAMILY ;
     static{
-    Schema.DescribeFieldResult fieldResult = Product2.Family .getDescribe();
+    Schema.DescribeFieldResult fieldResult = Product2.Family.getDescribe();
     PRODUCT_FAMILY = fieldResult.getPicklistValues();
     }
     public static final String DRAFT_ORDER_STATUS  = 'Draft';
