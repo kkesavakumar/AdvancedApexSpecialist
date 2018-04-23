@@ -9,9 +9,6 @@ public with sharing class TestDataFactory {
      * @description
     **/
     public static CollaborationGroup ConstructCollaborationGroup(){
-        //ToDo: Ensure this method returns a single Chatter CollaborationGroup
-        //    whose Name starts with 'TEST' followed by the INVENTORY_ANNOUNCEMENTS constant
-        //    and configured so anyone can join, see and post updates.
         CollaborationGroup chatterGroup = new CollaborationGroup();
         chatterGroup.Name = 'Test'+Constants.INVENTORY_ANNOUNCEMENTS;
         chatterGroup.CollaborationType = 'Public';
@@ -28,7 +25,7 @@ public with sharing class TestDataFactory {
             Product2 p = new Product2();
             p.Name = 'Test Product ' + i;
             if(i>=4){
-                p.Family = Constants.PRODUCT_FAMILY[1].getValue();
+                p.Family = Constants.PRODUCT_FAMILY[0].getValue();
             }
             else{
                 p.Family = Constants.PRODUCT_FAMILY[i].getValue();
@@ -138,7 +135,9 @@ public with sharing class TestDataFactory {
         insert lOrderRecs;
 
         insert constructOrderItems(cnt, lPriceBookEntries, lOrderRecs);
-
     }
 
+    public static void VerifyQuantityOrdered(Product2 originalProduct, Product2 updatedProduct, Integer qtyOrdered){
+        System.assertEquals(updatedProduct.Quantity_Ordered__c,originalproduct.Quantity_Ordered__c +  qtyOrdered);
+    }
 }
