@@ -7,7 +7,7 @@ private class Product2Tests {
     **/
     static TestMethod void Product2Extension_UnitTest(){
         Test.startTest();
-            //Ensure that you simulate a user visiting the product2New page by using the appropriate method
+            // To Ensure that you simulate a user visiting the product2New page by using the appropriate method
             PageReference pageRef = Page.Product2New;
             Test.setCurrentPage(pageRef);
             Product2 prod = TestDataFactory.ConstructProducts(1)[0];
