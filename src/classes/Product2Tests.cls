@@ -30,4 +30,23 @@ private class Product2Tests {
         Test.stopTest();
     }
 
+    @isTest
+    private static void Product2Trigger_UnitTest(){
+         List<Product2> prod = TestDataFactory.ConstructProducts(1);
+         insert prod;
+         CollaborationGroup chatter = new CollaborationGroup();
+         chatter.Name = 'Test Data Chatter Group';
+         chatter.Description = 'test';
+         chatter.CollaborationType = 'Public';
+         insert chatter;
+        prod[0].Quantity_Ordered__c=3;
+        update prod;
+    }
+
+    @isTest
+    private static void testPostAlerts(){
+        List<Product2> prod = TestDataFactory.ConstructProducts(3);
+        insert prod;
+        Product2Helper.PostAlerts(prod);
+    }
 }

@@ -2,13 +2,18 @@
  * @name AnnouncementQueueable
  * @description This class posts Chatter Announcements
 **/
-public class AnnouncementQueueable {
+public class AnnouncementQueueable implements Queueable{
 
     public List<ConnectApi.AnnouncementInput> toPost;
 
-    //ToDo: Modify this class to implement the Queueable interface and call the postAnnouncements method
+    public AnnouncementQueueable(List<ConnectApi.AnnouncementInput> announcements){
+        this.toPost = announcements;
+    }
 
-
+    public void execute(QueueableContext context){
+        PostAnnouncements(toPost);
+    }
+    
     /**
      * @name postAnnouncements
      * @description This method is provided for you to facilitate the Super Badge
@@ -23,10 +28,8 @@ public class AnnouncementQueueable {
             }
         }
         if ( announcements.size() > 0 && !test.isRunningTest() ){
-            AnnouncementQueueable q = new AnnouncementQueueable();
-            q.toPost = announcements;
-
-            //ToDo: Enqueue the above instance of announcementQueueable
+            AnnouncementQueueable q = new AnnouncementQueueable(announcements);
+            System.enqueueJob(q);
         }
     }
 
