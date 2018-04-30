@@ -19,10 +19,56 @@ public class OrderExtension {
         if ( orderRecord.Id != null ){
             orderRecord = queryOrderRecord(orderRecord.Id);
         }
+        loadPaginationData();
+        total = 0;
+        pieData = new List<chartHelper.chartData>();
+        //loop through the order Items for the orderRecord
+        for(OrderItem item : orderRecord.OrderItems){
+            orderItemMap.put(item.Product2Id,item);
+            if(item.Quantity > 0){
+                pieData.add(new ChartHelper.chartData(item.Product2.Name,item.Quantity * item.UnitPrice));
+                total += item.Quantity * item.UnitPrice;
+            }
+        }
     }
 
-    //ToDo: Implement your own method to populate orderItemList
-    //  that you will call after pagination and/or family selection
+    public void loadPaginationData(){
+        String query = 'SELECT Name, Product2.Family, Product2.Name, Product2Id, UnitPrice, Product2.Quantity_Remaining__c FROM PricebookEntry';
+        query += ' ';
+        query += 'where IsActive = True';
+        if(selectedFamily != null && selectedFamily != Constants.SELECT_ONE){
+            query += ' AND Product2.Family=:selectedFamily';
+        }
+        standardSetController = new ApexPages.StandardSetController(Database.getQueryLocator(query));
+        standardSetController.setPageSize(Constants.DEFAULT_ROWS);
+        System.debug('standardSetController==='+standardSetController);
+    }
+
+    public void loadOrderItemdata(){
+        System.debug('loadOrderData=====');
+        orderItemList = new List<OrderItem>();
+        for(SObject record : standardSetController.getRecords()){
+            System.debug('for=====');
+            PricebookEntry pbeRecord = (PricebookEntry)record;
+            if(orderItemMap.containsKey(pbeRecord.Product2Id)) {
+                System.debug('if=====');
+                orderItemList.add(orderItemMap.get(pbeRecord.Product2Id));
+            } else{
+                System.debug('else======');
+                OrderItem orderItem = new OrderItem(
+                PricebookEntryId = pbeRecord.Id,
+                Product2Id = pbeRecord.Product2Id,
+                UnitPrice = pbeRecord.UnitPrice,
+                Quantity = 0,
+                Product2 = pbeRecord.Product2
+                );
+                orderItemList.add(orderItem);
+                orderItemMap.put(pbeRecord.Product2Id,orderItem);
+            }
+        }
+        System.debug('orderItemList===='+orderItemList);
+        System.debug('orderItemMap==='+orderItemMap);
+    }
 
 
     /**
@@ -30,10 +76,12 @@ public class OrderExtension {
      * @description
     **/
     public void OnFieldChange(){
-        //ToDo: Implement logic to store the values changed on the page
-        //      and populate pieData
-        //      and populate total
-
+        pieData = new List<chartHelper.chartData>();
+        total = 0;
+        for(OrderItem item : orderItemMap.values()){
+            pieData.add(new ChartHelper.chartData(item.Product2.Name,item.Quantity * item.UnitPrice));
+            total += item.Quantity * item.UnitPrice;
+        }
     }
 
     /**
@@ -41,7 +89,8 @@ public class OrderExtension {
      * @description
     **/
     public void SelectFamily(){
-        //ToDo: Implement logic to filter based on the selected product family
+        loadPaginationData();
+        loadOrderItemdata();
     }
 
     /**
@@ -49,8 +98,29 @@ public class OrderExtension {
      * @description
     **/
     public void Save(){
-        //ToDo: Implement logic to save the Order and populated OrderItems
-
+        Savepoint sp = Database.setSavepoint();
+        List<OrderItem> lOrderItemsToInsert = new List<OrderItem>();
+        List<OrderItem> lOrderItemsToDelete = new List<OrderItem>();
+        try{
+            if(orderRecord.Pricebook2Id == null){
+                orderRecord.Pricebook2Id = Constants.STANDARD_PRICEBOOK_ID;
+            }
+            upsert orderRecord;
+            for(OrderItem oItem : orderItemMap.values()){
+                System.debug('for=======');
+                if(oItem.Quantity > 0 ){
+                    oItem.OrderId = orderRecord.Id;
+                    lOrderItemsToInsert.add(oItem);
+                }else{
+                    lOrderItemsToDelete.add(oItem);
+                }
+            }
+            upsert lOrderItemsToInsert;
+            delete lOrderItemsToDelete;
+        }catch(Exception ex){
+            Database.rollback(sp);
+            apexPages.addMessage(new ApexPages.message(ApexPages.Severity.Error,Constants.ERROR_MESSAGE));
+        }
     }
 
 
@@ -59,7 +129,9 @@ public class OrderExtension {
      * @description
     **/
     public void First(){
-
+        System.debug('first====');
+        standardSetController.first();
+        loadOrderItemdata();
     }
 
 
@@ -68,7 +140,9 @@ public class OrderExtension {
      * @description
     **/
     public void Next(){
-
+        System.debug('next=====');
+        standardSetController.next();
+        loadOrderItemdata();
     }
 
 
@@ -77,7 +151,9 @@ public class OrderExtension {
      * @description
     **/
     public void Previous(){
-
+        System.debug('prevopus=====');
+        standardSetController.previous();
+        loadOrderItemdata();
     }
 
     /**
@@ -85,7 +161,9 @@ public class OrderExtension {
      * @description
     **/
     public void Last(){
-
+        System.debug('last====');
+        standardSetController.last();
+        loadOrderItemdata();
     }
 
     /**
@@ -93,7 +171,7 @@ public class OrderExtension {
      * @description
     **/
     public Boolean GetHasPrevious(){
-        return null;
+        return standardSetController.getHasPrevious();
     }
 
     /**
@@ -101,7 +179,7 @@ public class OrderExtension {
      * @description
     **/
     public Boolean GetHasNext(){
-        return null;
+        return standardSetController.getHasNext();
     }
 
     /**
@@ -109,7 +187,8 @@ public class OrderExtension {
      * @description
     **/
     public Integer GetTotalPages(){
-        return null;
+        System.debug('total pages==='+standardSetController.getResultSize());
+        return (Integer)Math.ceil(standardSetController.getResultSize() / (Decimal)Constants.DEFAULT_ROWS);
     }
 
     /**
@@ -117,7 +196,7 @@ public class OrderExtension {
      * @description
     **/
     public Integer GetPageNumber(){
-        return null;
+        return standardSetController.getPageNumber();
     }
 
     /**
@@ -125,7 +204,12 @@ public class OrderExtension {
      * @description
     **/
     public List<SelectOption> GetFamilyOptions(){
-        return null;
+        List<SelectOption> productFamilyOptions = new List<SelectOption>();
+        productFamilyOptions.add(new SelectOption(Constants.SELECT_ONE ,Constants.SELECT_ONE));
+        for(Schema.PicklistEntry picklistEntry : Constants.PRODUCT_FAMILY){
+            productFamilyOptions.add(new SelectOption(picklistEntry.getLabel(),picklistEntry.getValue()));
+        }
+        return productFamilyOptions;
     }
 
     /**

@@ -7,8 +7,8 @@ public class Product2Helper {
     static List<CollaborationGroup> COLLABORATION_GROUP = [
         SELECT Id
         FROM CollaborationGroup
-        WHERE Name = 'group name'
-        OR Name = :('TEST'+'group name')
+        WHERE Name =: Constants.INVENTORY_ANNOUNCEMENTS 
+        OR Name = :('TEST'+Constants.INVENTORY_ANNOUNCEMENTS)
         LIMIT 1
     ];
 
@@ -18,19 +18,24 @@ public class Product2Helper {
      * @param List<Product2> newList
      * @param List<Product2> oldList
     **/
-    public static void AfterUpdate(){
-        //ToDo: Declare a List of Product2 records named needsAnnouncement
-
-        //ToDo: Declare a Map of Strings to Inventory_Setting__mdt records
-
-        //ToDo: Loop through a query of Inventory_Setting__mdt records and populate the Map with Name as the key
-
-        //ToDo: Loop through the Products in newList
-        // Use the corresponding Inventory Setting record to determine the correct Low Quantity Alert
-        // If the Product's Quantity Remaining has been changed to less than the Low Quantity Alert
-        //      add it to the needsAnnouncement list
-
-        //ToDo: Pass records to the postAlerts method
+    public static void AfterUpdate(List<Product2> newList,List<Product2> oldList){
+		List<Product2> needsAnnouncement = new List<Product2>();
+		Map<String,Inventory_Setting__mdt> inventorySettingMap = new Map<String,Inventory_Setting__mdt>();
+        for(Inventory_Setting__mdt inventorySetting : [SELECT DeveloperName,Id,Low_Quantity_Alert__c FROM Inventory_Setting__mdt]){
+            inventorySettingMap.put(inventorySetting.DeveloperName,inventorySetting);
+        }
+        System.debug('inventorySettingMap===='+inventorySettingMap);
+        for(Integer i=0;i<newList.size();i++){
+            String oldProdFamily = oldList[i].Family;
+            String newProdFamily = newList[i].Family;
+            Decimal oldProdCount = oldList[i].Quantity_Remaining__c;
+            Decimal newProdCount = newList[i].Quantity_Remaining__c;
+            if((inventorySettingMap.containskey(oldProdFamily) || inventorySettingMap.containskey(newProdFamily)) && 
+              (inventorySettingMap.get(oldProdFamily).Low_Quantity_Alert__c < oldProdCount && inventorySettingMap.get(newProdFamily).Low_Quantity_Alert__c > newProdCount)){
+                needsAnnouncement.add(newList[i]);
+            }
+        }
+        PostAlerts(needsAnnouncement);
     }
 
     /**
@@ -41,11 +46,19 @@ public class Product2Helper {
     public static void PostAlerts(List<Product2> productList){
         List<ConnectApi.AnnouncementInput> toPost = new List<ConnectApi.AnnouncementInput>();
         for ( Product2 p : productList ){
+            ConnectApi.MessageBodyInput messageInput = new ConnectApi.MessageBodyInput();
+            ConnectApi.TextSegmentInput textSegment = new ConnectApi.TextSegmentInput();
+            textSegment.text = p.Name + ' ' + Constants.INVENTORY_LEVEL_LOW;
+            messageInput.messageSegments = new List<ConnectApi.MessageSegmentInput>();
+            messageInput.messageSegments.add(textSegment);
             // ToDo: Construct a new AnnouncementInput for the Chatter Group so that it:
-            // expires in a day
-            // does not notify users via email.
-            // and has a text body that includes the name of the product followed by the INVENTORY_LEVEL_LOW constant
+            ConnectApi.AnnouncementInput announcement = new ConnectApi.AnnouncementInput();
+            announcement.sendEmails = false;
+            announcement.body = messageInput;
+            announcement.expirationDate = Date.today().addDays(1);
+            announcement.parentId  = COLLABORATION_GROUP[0].Id;
         }
-        // ToDo: Create and enqueue an instance of the announcementQueuable class with the list of Products
+         AnnouncementQueueable q = new AnnouncementQueueable(toPost);
+         System.enqueueJob(q);
     }
 }
